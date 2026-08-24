@@ -594,8 +594,21 @@ async function startOnlineGame() {
   const uids = entries.map(([uid]) => uid);
   state.game = new Game(names, Math.random);
   state.game.players.forEach((p, i) => { p.uid = uids[i]; });
-  await db.ref(`rooms/${online.code}/status`).set('playing');
   state.game.startRound();
+  // Misafirler "status: playing" değişikliğini gameState henüz yazılmadan
+  // görürse ekranları sonsuza dek "Oyun yükleniyor…" durumunda takılı kalır.
+  // Bu yüzden status ve gameState tek, atomik bir çoklu-yol güncellemesiyle
+  // ve gameState gerçekten hazır olduktan SONRA birlikte yazılır.
+  try {
+    await db.ref(`rooms/${online.code}`).update({
+      status: 'playing',
+      gameState: serializeGame(state.game),
+    });
+  } catch (err) {
+    console.error('Oyun durumu yazılamadı', err);
+    showToast('Oyun başlatılamadı: ' + (err && err.message ? err.message : err));
+    return;
+  }
   state.screen = 'game';
   render();
   await runDealingSequence();
