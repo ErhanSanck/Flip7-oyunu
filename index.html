@@ -1186,9 +1186,12 @@ function renderGame() {
       <img class="logo-img logo-img-sm" src="${LOGO_SRC}" alt="Flip 7">
     </div>
     <div class="topbar">
-      <div class="chip">Tur <b>${g.round}</b></div>
-      <div class="chip">200 puana yarış</div>
-      <div class="chip">Deste <b>${g.deck.length}</b></div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="chip">Tur <b>${g.round}</b></div>
+        <div class="chip">200 puana yarış</div>
+        <div class="chip">Deste <b>${g.deck.length}</b></div>
+      </div>
+      ${state.online ? `<div class="chip">Oda <b>${escapeHtml(state.online.code)}</b></div>` : ''}
     </div>
     <div class="deck-zone">
       <div id="deck"></div>
