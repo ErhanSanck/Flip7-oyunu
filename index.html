@@ -300,12 +300,105 @@
   @media (prefers-reduced-motion: reduce){
     .flying-card, .sheet, .overlay, #deck.pulse{ animation:none !important; transition:none !important; }
   }
+
+  /* ---------- Top-right game controls (end game / leave room) ---------- */
+  .icon-btn{
+    width:34px; height:34px; border-radius:50%; border:1px solid var(--line);
+    background:#fff; color:var(--ink); font-size:15px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; line-height:1; flex:none;
+    box-shadow:0 2px 6px rgba(35,26,18,0.1);
+  }
+  .icon-btn:active{ transform:scale(0.94); }
+
+  /* ---------- Chat ---------- */
+  .chat-toggle-btn{
+    position:fixed; top:14px; right:12px; z-index:55;
+    width:46px;height:46px;border-radius:50%;
+    background: linear-gradient(160deg, var(--gold), var(--gold-2));
+    color:#fff; border:none; font-size:19px; cursor:pointer;
+    box-shadow: var(--shadow); display:flex; align-items:center; justify-content:center;
+  }
+  .chat-toggle-btn:active{ transform:scale(0.95); }
+  .chat-badge{
+    position:absolute; top:-3px; right:-3px; min-width:18px; height:18px; border-radius:999px;
+    background:var(--burgundy); color:#fff; font-size:10.5px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; padding:0 4px;
+    border:2px solid #fff;
+  }
+  .chat-panel{
+    position:fixed; top:0; right:0; bottom:0; width:min(340px, 88vw);
+    background: var(--paper); border-left:1px solid var(--line);
+    box-shadow: -8px 0 24px rgba(35,26,18,0.18);
+    display:flex; flex-direction:column; z-index:70;
+    transform: translateX(100%); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+  }
+  .chat-panel.open{ transform: translateX(0); }
+  .chat-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--line);
+    font-weight:700; font-family: Georgia, serif; font-size:16px; flex:none;
+  }
+  .chat-close{
+    border:none; background:transparent; font-size:16px; color:var(--ink-soft); cursor:pointer;
+    width:30px;height:30px; border-radius:50%;
+  }
+  .chat-close:active{ background: var(--line-soft); }
+  .chat-messages{
+    flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:10px;
+  }
+  .chat-msg{ max-width:88%; }
+  .chat-msg.me{ align-self:flex-end; text-align:right; }
+  .chat-msg-name{ font-size:11px; font-weight:700; color:var(--gold-2); }
+  .chat-msg.me .chat-msg-name{ color: var(--ink-soft); }
+  .chat-tag{ font-size:9.5px; font-weight:600; color:#a83a43; }
+  .chat-msg-text{
+    margin-top:2px; background:#fff; border:1px solid var(--line); border-radius:12px;
+    padding:8px 11px; font-size:13.5px; line-height:1.35; display:inline-block; text-align:left;
+    word-break:break-word;
+  }
+  .chat-msg.me .chat-msg-text{ background: rgba(201,146,46,0.12); border-color: rgba(201,146,46,0.35); }
+  .chat-input-row{
+    display:flex; gap:8px; padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+    border-top:1px solid var(--line); flex:none;
+  }
+  .chat-input{
+    flex:1; border:1px solid var(--line); border-radius:999px; padding:10px 14px; font-size:13.5px; color:var(--ink);
+    min-width:0;
+  }
+  .chat-input:focus{ outline:2px solid var(--gold); border-color:transparent; }
+  .chat-send{
+    border:none; border-radius:999px; padding:0 16px; background: linear-gradient(160deg, var(--gold), var(--gold-2));
+    color:#fff; font-weight:700; font-size:13px; cursor:pointer; flex:none;
+  }
+  .chat-send:active{ transform:scale(0.96); }
+  .chat-empty{ font-size:12.5px; color:var(--ink-faint); text-align:center; margin-top:20px; }
+
+  @media (prefers-reduced-motion: reduce){
+    .chat-panel{ transition:none !important; }
+  }
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="flyLayer"></div>
 <div id="toast" class="toast"></div>
+
+<button id="chatToggleBtn" class="chat-toggle-btn" data-action="toggle-chat" style="display:none;" title="Sohbet">
+  💬<span id="chatBadge" class="chat-badge" data-chat-badge style="display:none;"></span>
+</button>
+<div id="chatPanel" class="chat-panel">
+  <div class="chat-header">
+    <span>Sohbet</span>
+    <button class="chat-close" data-action="close-chat">✕</button>
+  </div>
+  <div id="chatMessages" class="chat-messages">
+    <div class="chat-empty">Henüz mesaj yok</div>
+  </div>
+  <div class="chat-input-row">
+    <input id="chatInput" class="chat-input" type="text" maxlength="200" placeholder="Mesaj yaz…" autocomplete="off">
+    <button class="chat-send" data-action="send-chat">Gönder</button>
+  </div>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -560,10 +653,103 @@ function handleRemoteAction(act) {
   }
 }
 
+/* ---------------------------------------------------------
+   Sohbet: her oda kendi "rooms/{code}/chat" yoluna yazar, bu
+   yüzden bir odadaki mesajlar başka bir odada asla görünmez ve
+   oda kapanınca (host ayrılınca oda silinir) mesajlar da onunla
+   birlikte kaybolur. Konuşmacı izleyiciyse mesajın yanında
+   "(izleyici)" etiketi gösterilir.
+--------------------------------------------------------- */
+function attachChatListener(code) {
+  const messagesEl = document.getElementById('chatMessages');
+  if (messagesEl) messagesEl.innerHTML = '';
+  state.chatUnread = 0;
+  updateChatBadge();
+  const ref = db.ref(`rooms/${code}/chat`);
+  const handler = snap => appendChatMessage(snap.val());
+  ref.on('child_added', handler);
+  if (state.online) state.online.chatUnsub = () => ref.off('child_added', handler);
+}
+
+function appendChatMessage(msg) {
+  if (!msg) return;
+  const el = document.getElementById('chatMessages');
+  if (!el) return;
+  const empty = el.querySelector('.chat-empty');
+  if (empty) empty.remove();
+  const isMe = msg.uid === myUid;
+  const div = document.createElement('div');
+  div.className = 'chat-msg' + (isMe ? ' me' : '');
+  div.innerHTML = `
+    <div class="chat-msg-name">${escapeHtml(msg.name || 'Oyuncu')}${msg.role === 'spectator' ? ' <span class="chat-tag">(izleyici)</span>' : ''}</div>
+    <div class="chat-msg-text">${escapeHtml(msg.text || '')}</div>
+  `;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+  if (!state.chatOpen) {
+    state.chatUnread = (state.chatUnread || 0) + 1;
+    updateChatBadge();
+  }
+}
+
+function sendChatMessageNow() {
+  const input = document.getElementById('chatInput');
+  if (!input || !state.online) return;
+  const text = input.value.trim().slice(0, 200);
+  if (!text) return;
+  const online = state.online;
+  const isPlayer = !!(online.players && online.players[myUid]);
+  const role = isPlayer ? (myUid === online.hostId ? 'host' : 'player') : 'spectator';
+  const name = isPlayer
+    ? (online.players[myUid] && online.players[myUid].name) || 'Oyuncu'
+    : (online.spectators && online.spectators[myUid] && online.spectators[myUid].name) || 'İzleyici';
+  input.value = '';
+  db.ref(`rooms/${online.code}/chat`).push({ uid: myUid, name, role, text, ts: Date.now() })
+    .catch(e => console.error('Mesaj gönderilemedi', e));
+}
+
+function toggleChat() {
+  state.chatOpen = !state.chatOpen;
+  const panel = document.getElementById('chatPanel');
+  if (panel) panel.classList.toggle('open', state.chatOpen);
+  if (state.chatOpen) {
+    state.chatUnread = 0;
+    updateChatBadge();
+    const input = document.getElementById('chatInput');
+    if (input) setTimeout(() => input.focus(), 50);
+    const el = document.getElementById('chatMessages');
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+}
+function closeChat() {
+  state.chatOpen = false;
+  const panel = document.getElementById('chatPanel');
+  if (panel) panel.classList.remove('open');
+}
+function updateChatBadge() {
+  const badge = document.getElementById('chatBadge');
+  if (!badge) return;
+  if (state.chatUnread > 0) {
+    badge.style.display = '';
+    badge.textContent = state.chatUnread > 9 ? '9+' : String(state.chatUnread);
+  } else {
+    badge.style.display = 'none';
+  }
+}
+function updateChatVisibility() {
+  const btn = document.getElementById('chatToggleBtn');
+  if (!btn) return;
+  const show = !!state.online && (state.screen === 'lobby' || state.screen === 'game');
+  btn.style.display = show ? '' : 'none';
+  if (!show) closeChat();
+}
+
 function attachRoomListener(code, isHost) {
   if (state.online && state.online.unsub) state.online.unsub();
   if (state.online && state.online.actionsUnsub) state.online.actionsUnsub();
-  state.online = { code, isHost, unsub: null, actionsUnsub: null, players: {}, spectators: {}, maxPlayers: 4, status: 'waiting', hostId: null };
+  if (state.online && state.online.chatUnsub) state.online.chatUnsub();
+  state.online = { code, isHost, unsub: null, actionsUnsub: null, chatUnsub: null, players: {}, spectators: {}, maxPlayers: 4, status: 'waiting', hostId: null };
+  attachChatListener(code);
   const roomRef = db.ref('rooms/' + code);
   const handler = snap => {
     const room = snap.val();
@@ -571,7 +757,19 @@ function attachRoomListener(code, isHost) {
     // status/gameState değerini aldığını karşılaştırmak için. Sorun
     // çözüldükten sonra kaldırılabilir.
     console.log('[room listener]', isHost ? 'HOST' : 'GUEST', 'status=', room && room.status, 'gameState var mı?', !!(room && room.gameState));
-    if (!room) { showToast('Oda kapatıldı'); state.online = null; state.screen = 'home'; render(); return; }
+    if (!room) {
+      showToast('Oda kapatıldı');
+      if (state.online && state.online.actionsUnsub) state.online.actionsUnsub();
+      if (state.online && state.online.chatUnsub) state.online.chatUnsub();
+      state.online = null; state.game = null; state.screen = 'home';
+      const messagesEl = document.getElementById('chatMessages');
+      if (messagesEl) messagesEl.innerHTML = '<div class="chat-empty">Henüz mesaj yok</div>';
+      state.chatOpen = false; state.chatUnread = 0;
+      const panel = document.getElementById('chatPanel');
+      if (panel) panel.classList.remove('open');
+      render();
+      return;
+    }
     Object.assign(state.online, {
       maxPlayers: room.maxPlayers, hostId: room.hostId, status: room.status,
       players: room.players || {}, spectators: room.spectators || {},
@@ -614,9 +812,10 @@ function attachRoomListener(code, isHost) {
 
 function leaveRoom() {
   if (!state.online) return;
-  const { code, isHost, unsub, actionsUnsub } = state.online;
+  const { code, isHost, unsub, actionsUnsub, chatUnsub } = state.online;
   if (unsub) unsub();
   if (actionsUnsub) actionsUnsub();
+  if (chatUnsub) chatUnsub();
   if (isHost) {
     db.ref('rooms/' + code).remove().catch(() => {});
   } else {
@@ -626,6 +825,12 @@ function leaveRoom() {
   state.online = null;
   state.game = null;
   state.screen = 'home';
+  const messagesEl = document.getElementById('chatMessages');
+  if (messagesEl) messagesEl.innerHTML = '<div class="chat-empty">Henüz mesaj yok</div>';
+  state.chatOpen = false;
+  state.chatUnread = 0;
+  const panel = document.getElementById('chatPanel');
+  if (panel) panel.classList.remove('open');
   render();
 }
 
@@ -711,16 +916,37 @@ function shuffle(arr, rng) {
   }
   return a;
 }
+/* Tamamen rastgele bir karıştırmada aynı sayının art arda iki kez
+   gelmesi (ör. üst üste iki 11 ya da iki 12) istatistiksel olarak
+   mümkündür ve özellikle çok sayıda kopyası olan büyük sayılarda
+   (11'den 11, 12'den 12 tane) daha sık göze çarpar. Oyuncu deneyimini
+   iyileştirmek için karıştırma sonrasında, dizide bitişik duran aynı
+   sayılı iki kart varsa, aradaki rastgeleliği bozmadan daha ileride
+   duran farklı değerli bir kartla yer değiştirilir; böylece aynı sayı
+   art arda iki kez çekilmez. */
+function declusterAdjacentDuplicates(a) {
+  for (let i = 1; i < a.length; i++) {
+    const prev = a[i - 1];
+    const cur = a[i];
+    if (cur.type !== 'number' || prev.type !== 'number' || cur.value !== prev.value) continue;
+    for (let j = i + 1; j < a.length; j++) {
+      const cand = a[j];
+      const okWithPrev = !(cand.type === 'number' && cand.value === prev.value);
+      if (okWithPrev) { [a[i], a[j]] = [a[j], a[i]]; break; }
+      // uygun aday bulunamazsa (çok nadir), bu çift olduğu gibi kalır
+    }
+  }
+  return a;
+}
 /* Deste, gerçek bir kart destesi gibi başında bir kez tamamen rastgele
-   karıştırılır (Fisher-Yates) ve draw() ile sondan (pop) çekilir; bu da
-   fiziksel olarak "karıştır, en üstten çek" mantığına karşılık gelir.
-   Çekilecek kartların sırası üzerinde başkaca hiçbir müdahale/garanti
-   yapılmaz (ör. art arda farklı/aynı sayı gelmesini engelleme gibi),
-   böylece hangi kartın ne zaman geleceği tamamen şansa bağlıdır. */
+   karıştırılır (Fisher-Yates), ardından art arda aynı sayı gelmesini
+   engellemek için declusterAdjacentDuplicates ile düzeltilir, ve
+   draw() ile sondan (pop) çekilir; bu da fiziksel olarak "karıştır,
+   en üstten çek" mantığına karşılık gelir. */
 function makePlayers(names) {
   return names.map((name, i) => ({
     idx: i, name, total: 0, numbers: [], cards: [], modifiers: [],
-    secondChance: false, status: 'active', frozen: false, roundScore: 0,
+    secondChance: 0, status: 'active', frozen: false, roundScore: 0,
   }));
 }
 function roundScore(p) {
@@ -748,10 +974,10 @@ class Game {
   }
   startRound() {
     this.round++;
-    this.deck = shuffle(buildDeck(), this.rng);
+    this.deck = declusterAdjacentDuplicates(shuffle(buildDeck(), this.rng));
     this.discard = [];
     this.players.forEach(p => {
-      p.numbers = []; p.cards = []; p.modifiers = []; p.secondChance = false;
+      p.numbers = []; p.cards = []; p.modifiers = []; p.secondChance = 0;
       p.status = 'active'; p.frozen = false; p.roundScore = 0;
     });
     this.order = this.seatOrder();
@@ -764,7 +990,7 @@ class Game {
     this.roundWinnerBonusFor = null;
   }
   draw() {
-    if (this.deck.length === 0) { this.deck = shuffle(this.discard, this.rng); this.discard = []; }
+    if (this.deck.length === 0) { this.deck = declusterAdjacentDuplicates(shuffle(this.discard, this.rng)); this.discard = []; }
     return this.deck.pop();
   }
   dealStep() {
@@ -780,9 +1006,9 @@ class Game {
     p.cards.push(card);
     if (card.type === 'number') {
       if (p.numbers.includes(card.value)) {
-        if (p.secondChance) {
-          p.secondChance = false; this.discard.push(card);
-          // Kullanılan ikinci şans kartı, oyuncunun destesinden kaldırılır.
+        if (p.secondChance > 0) {
+          p.secondChance -= 1; this.discard.push(card);
+          // Kullanılan ikinci şans kartlarından biri, oyuncunun destesinden kaldırılır.
           const scIdx = p.cards.findIndex(c => c.type === 'action' && c.kind === 'secondChance');
           if (scIdx !== -1) { this.discard.push(p.cards[scIdx]); p.cards.splice(scIdx, 1); }
           this.log.push(`${p.name} ikinci şansını kullandı.`);
@@ -798,9 +1024,11 @@ class Game {
     }
     if (card.type === 'modifier') { p.modifiers.push(card); return { result: 'ok' }; }
     if (card.kind === 'secondChance') {
-      if (p.secondChance) { this.discard.push(card); return { result: 'ok' }; }
-      p.secondChance = true;
-      this.log.push(`${p.name} ikinci şans kartı aldı.`);
+      // Oyuncu zaten bir ikinci şans kartına sahipse, yenisi elinden
+      // atılmaz — üst üste birikir (sayaç artar) ve her biri, sırayla,
+      // ayrı bir tekrar-sayı hakkı olarak kullanılabilir.
+      p.secondChance = (p.secondChance || 0) + 1;
+      this.log.push(p.secondChance > 1 ? `${p.name} bir ikinci şans kartı daha aldı (toplam ${p.secondChance}).` : `${p.name} ikinci şans kartı aldı.`);
       return { result: 'ok' };
     }
     return { result: 'action', card };
@@ -1165,7 +1393,7 @@ function renderGame() {
       <div class="player status-${p.status} ${isCurrent ? 'is-turn' : ''}" data-idx="${p.idx}">
         <div class="player-head">
           <div class="name">${escapeHtml(p.name)} ${isDealer ? '<span class="dealer-tag">DAĞITICI</span>' : ''}
-            ${p.secondChance ? '<span class="sc-badge">🛡 2. Şans</span>' : ''}
+            ${p.secondChance > 0 ? Array.from({ length: p.secondChance }).map(() => '<span class="sc-badge">🛡 2. Şans</span>').join('') : ''}
             ${disconnected ? '<span class="status-tag busted">bağlantı koptu</span>' : ''}
           </div>
           <span class="status-tag ${p.status}">${statusLabel(p)}</span>
@@ -1191,7 +1419,12 @@ function renderGame() {
         <div class="chip">200 puana yarış</div>
         <div class="chip">Deste <b>${g.deck.length}</b></div>
       </div>
-      ${state.online ? `<div class="chip">Oda <b>${escapeHtml(state.online.code)}</b></div>` : ''}
+      <div style="display:flex; align-items:center; gap:8px;">
+        ${state.online ? `<div class="chip">Oda <b>${escapeHtml(state.online.code)}</b></div>` : ''}
+        ${state.online
+          ? `<button class="icon-btn" data-action="leave-room" title="Odadan Ayrıl">🚪</button>`
+          : `<button class="icon-btn" data-action="end-local-game" title="Oyunu Bitir">✕</button>`}
+      </div>
     </div>
     <div class="deck-zone">
       <div id="deck"></div>
@@ -1339,6 +1572,7 @@ function render() {
   // Host, her ekran güncellemesinde geçerli oyun durumunu odadaki diğer
   // istemcilere (Realtime Database üzerinden) yayınlar.
   if (state.online && state.online.isHost && state.game) pushGameState();
+  updateChatVisibility();
 }
 
 /* =========================================================
@@ -1466,6 +1700,41 @@ function startGame() {
   runDealingSequence();
 }
 
+function endLocalGame() {
+  if (state.online) return; // güvenlik: online oyunlarda bu yol kullanılmaz, 'Odadan Ayrıl' kullanılır
+  // Not: bazı ortamlarda tarayıcının yerleşik confirm() penceresi engelleniyor
+  // (sandbox'lı iframe vb.) ve tıklama sessizce hiçbir şey yapmıyormuş gibi
+  // görünüyordu. Bunun yerine uygulamanın kendi stiliyle bir onay ekranı
+  // (overlay/sheet) gösteriliyor.
+  const old = document.querySelector('.overlay');
+  if (old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = `<div class="sheet">
+    <h2>Oyunu bitir</h2>
+    <p class="sub">Devam eden oyun sona erecek ve ana menüye döneceksin. Emin misin?</p>
+    <button class="btn-primary" data-action="confirm-end-local-game">Evet, Bitir</button>
+    <button class="btn-ghost" data-action="cancel-end-local-game">Vazgeç</button>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function confirmEndLocalGame() {
+  const oldOverlay = document.querySelector('.overlay');
+  if (oldOverlay) oldOverlay.remove();
+  const oldBar = document.querySelector('.actionbar');
+  if (oldBar) oldBar.remove();
+  state.busy = false;
+  state.game = null;
+  state.screen = 'home';
+  render();
+}
+
+function cancelEndLocalGame() {
+  const old = document.querySelector('.overlay');
+  if (old) old.remove();
+}
+
 function newGame() {
   // Skor tablosu (overlay) ve alt aksiyon çubuğu, oyun ekranına ait DOM
   // elemanları olduğundan setup ekranına dönmeden önce mutlaka temizlenmeli;
@@ -1528,6 +1797,12 @@ document.addEventListener('click', (e) => {
   else if (action === 'choose-target') handleChooseTargetClick(parseInt(btn.dataset.targetIdx, 10));
   else if (action === 'next-round') handleNextRoundClick();
   else if (action === 'new-game') handleNewGameClick();
+  else if (action === 'end-local-game') endLocalGame();
+  else if (action === 'confirm-end-local-game') confirmEndLocalGame();
+  else if (action === 'cancel-end-local-game') cancelEndLocalGame();
+  else if (action === 'toggle-chat') toggleChat();
+  else if (action === 'close-chat') closeChat();
+  else if (action === 'send-chat') sendChatMessageNow();
   else if (action === 'go-home') { state.screen = 'home'; render(); }
   else if (action === 'go-setup') { state.screen = 'setup'; render(); }
   else if (action === 'go-online-create') { state.screen = 'online-create'; render(); }
@@ -1542,6 +1817,12 @@ document.addEventListener('click', (e) => {
     if (state.online) {
       navigator.clipboard?.writeText(state.online.code).then(() => showToast('Oda kodu kopyalandı'));
     }
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.target && e.target.id === 'chatInput' && e.key === 'Enter') {
+    e.preventDefault();
+    sendChatMessageNow();
   }
 });
 document.addEventListener('input', (e) => {
