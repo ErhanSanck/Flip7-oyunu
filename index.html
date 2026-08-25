@@ -748,7 +748,7 @@ function attachRoomListener(code, isHost) {
   if (state.online && state.online.unsub) state.online.unsub();
   if (state.online && state.online.actionsUnsub) state.online.actionsUnsub();
   if (state.online && state.online.chatUnsub) state.online.chatUnsub();
-  state.online = { code, isHost, unsub: null, actionsUnsub: null, chatUnsub: null, players: {}, spectators: {}, maxPlayers: 4, status: 'waiting', hostId: null };
+  state.online = { code, isHost, unsub: null, actionsUnsub: null, chatUnsub: null, playersKey: null, players: {}, spectators: {}, maxPlayers: 4, status: 'waiting', hostId: null };
   attachChatListener(code);
   const roomRef = db.ref('rooms/' + code);
   const handler = snap => {
@@ -770,9 +770,20 @@ function attachRoomListener(code, isHost) {
       render();
       return;
     }
+    // players/spectators verisinin önceki halini bir anahtarla (JSON)
+    // karşılaştırıyoruz. Bunun tek amacı: host'un ekranı zaten 'game'
+    // iken SADECE bağlantı/oyuncu bilgisi değiştiğinde (ör. biri
+    // "Odadan Ayrıl"a bastı ya da bağlantısı koptu) arayüzü yeniden
+    // çizmek — host'un kendi gameState yayınının (pushGameState) tetiklediği
+    // bir sonraki 'value' olayında bu anahtar DEĞİŞMEYECEĞİ için sonsuz bir
+    // render+push döngüsüne girilmiyor.
+    const prevPlayersKey = state.online.playersKey;
+    const newPlayersKey = JSON.stringify({ p: room.players || {}, s: room.spectators || {} });
+    const playersChanged = prevPlayersKey !== null && prevPlayersKey !== newPlayersKey;
     Object.assign(state.online, {
       maxPlayers: room.maxPlayers, hostId: room.hostId, status: room.status,
       players: room.players || {}, spectators: room.spectators || {},
+      playersKey: newPlayersKey,
     });
     if (room.status === 'waiting') {
       state.game = null;
@@ -787,13 +798,17 @@ function attachRoomListener(code, isHost) {
       } else if (state.screen !== 'game' && room.gameState) {
         // Bu dal normalde çalışmaz (host oyunu zaten kendi başlatır); sadece
         // host sayfayı 'playing' durumundaki bir odaya sonradan bağlanırsa/
-        // yenilerse devreye girer. Kendi yazdığı gameState güncellemeleri
-        // yüzünden gereksiz yere tekrar render+push döngüsüne girmemek için
-        // ekran zaten 'game' ise burada hiçbir şey yapılmaz.
+        // yenilerse devreye girer.
         state.game = reconstructHostGame(room.gameState);
         state.screen = 'game';
         render();
         if (state.game.phase === 'dealing') runDealingSequence();
+      } else if (playersChanged) {
+        // Host'un ekranı zaten 'game' iken oyuncu/izleyici verisi değiştiyse
+        // (bağlantı koptu, biri ayrıldı vb.) oyun durumunu yeniden kurmadan
+        // sadece arayüzü tazeleriz; aksi halde bağlantı rozeti host
+        // ekranında hiç güncellenmezdi.
+        render();
       }
     }
   };
