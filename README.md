@@ -27,53 +27,6 @@ Herhangi bir kurulum gerekmez:
 1. Bu depoyu klonla veya indir.
 2. `index.html` dosyasını bir tarayıcıda aç.
 
-Hotseat modu bu şekilde doğrudan çalışır. Online mod için internet bağlantısı ve Firebase servislerine erişim (gstatic.com, firebaseio.com) gerekir.
-
-### GitHub Pages ile yayınlama
-
-1. Depoyu GitHub'a yükle (bu README'nin yanına `index.html` dosyasını da ekle).
-2. **Settings → Pages** bölümünden `main` dalını (branch) kaynak olarak seç.
-3. Birkaç dakika içinde `https://<kullanici-adi>.github.io/<repo-adi>/` adresinden erişilebilir olur.
-
-## Online mod için kendi Firebase projeni kurmak
-
-Depodaki `index.html` içinde hazır bir Firebase yapılandırması bulunuyor. Kendi kopyanı barındıracaksan (özellikle herkese açık bir repo/sitede), kendi Firebase projeni oluşturup `firebaseConfig` nesnesini değiştirmen önerilir:
-
-1. [Firebase Console](https://console.firebase.google.com/)'da yeni bir proje oluştur.
-2. **Build → Realtime Database**'i etkinleştir (test modunda başlayabilirsin, sonra kuralları sıkılaştır).
-3. **Build → Authentication**'da **Anonymous** (anonim) giriş yöntemini etkinleştir — oyun her ziyaretçiye anonim bir kimlik atar.
-4. Proje ayarlarından bir **Web App** ekle ve sana verilen yapılandırma nesnesini kopyala.
-5. `index.html` içindeki `firebaseConfig` bloğunu (yaklaşık 416. satır) kendi bilgilerinle değiştir:
-
-   ```js
-   const firebaseConfig = {
-     apiKey: "...",
-     authDomain: "...",
-     databaseURL: "...",
-     projectId: "...",
-     storageBucket: "...",
-     messagingSenderId: "...",
-     appId: "..."
-   };
-   ```
-
-6. Realtime Database kurallarını oda/sohbet verisi için uygun şekilde ayarla (örnek — sadece giriş yapmış kullanıcılar okuyup yazabilsin):
-
-   ```json
-   {
-     "rules": {
-       "rooms": {
-         "$code": {
-           ".read": "auth != null",
-           ".write": "auth != null"
-         }
-       }
-     }
-   }
-   ```
-
-> Not: Firebase web `apiKey` değeri gizli bir sır değildir (istemci tarafında zaten görünür durumdadır), asıl güvenlik **Realtime Database kuralları** ile sağlanır. Kendi projeni kullanmak istemiyorsan depodaki hazır yapılandırmayla da online mod çalışır, ancak paylaşılan bir proje olduğu için kapasite/kota sınırlamalarına takılabilir.
-
 ## Proje yapısı
 
 ```
