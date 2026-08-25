@@ -812,14 +812,24 @@ function attachRoomListener(code, isHost) {
 
 function leaveRoom() {
   if (!state.online) return;
-  const { code, isHost, unsub, actionsUnsub, chatUnsub } = state.online;
+  const { code, isHost, unsub, actionsUnsub, chatUnsub, status, players } = state.online;
   if (unsub) unsub();
   if (actionsUnsub) actionsUnsub();
   if (chatUnsub) chatUnsub();
   if (isHost) {
     db.ref('rooms/' + code).remove().catch(() => {});
   } else {
-    db.ref(`rooms/${code}/players/${myUid}`).remove().catch(() => {});
+    // Oyun zaten başlamışsa (status: 'playing') ve ayrılan kişi bir
+    // oyuncuysa, kaydı tamamen SİLMEK yerine "connected: false" olarak
+    // işaretliyoruz. Aksi halde bu oyuncu diğerlerinin ekranından tümüyle
+    // kaybolur ve durumu (ör. "Aktif") hiç güncellenmez; bu şekilde diğer
+    // oyuncuların ekranında bu kişinin durumu "Bağlantı koptu" olarak görünür.
+    const wasPlayerInGame = status === 'playing' && players && players[myUid];
+    if (wasPlayerInGame) {
+      db.ref(`rooms/${code}/players/${myUid}/connected`).set(false).catch(() => {});
+    } else {
+      db.ref(`rooms/${code}/players/${myUid}`).remove().catch(() => {});
+    }
     db.ref(`rooms/${code}/spectators/${myUid}`).remove().catch(() => {});
   }
   state.online = null;
@@ -1361,7 +1371,8 @@ function renderLobby() {
 }
 
 /* ---------- game screen ---------- */
-function statusLabel(p) {
+function statusLabel(p, disconnected) {
+  if (disconnected) return 'Bağlantı koptu';
   if (p.status === 'busted') return 'Elendi';
   if (p.status === 'stayed') return p.frozen ? 'Donduruldu' : 'Pas';
   return 'Aktif';
@@ -1388,15 +1399,19 @@ function renderGame() {
     const isCurrent = currentIdx === p.idx;
     const isDealer = g.dealerIndex === p.idx;
     const onlineInfo = state.online && p.uid ? state.online.players[p.uid] : null;
-    const disconnected = onlineInfo && onlineInfo.connected === false;
+    // "connected" alanı hem beklenmedik kopmalarda (onDisconnect) hem de
+    // oyuncu sağ üstteki "Odadan Ayrıl" butonuna basıp bilerek çıktığında
+    // false olarak yazılıyor; her iki durumda da burada aynı şekilde
+    // "Bağlantı koptu" gösteriliyor.
+    const disconnected = !!(onlineInfo && onlineInfo.connected === false);
+    const statusTagClass = disconnected ? 'busted' : p.status;
     return `
       <div class="player status-${p.status} ${isCurrent ? 'is-turn' : ''}" data-idx="${p.idx}">
         <div class="player-head">
           <div class="name">${escapeHtml(p.name)} ${isDealer ? '<span class="dealer-tag">DAĞITICI</span>' : ''}
             ${p.secondChance > 0 ? Array.from({ length: p.secondChance }).map(() => '<span class="sc-badge">🛡 2. Şans</span>').join('') : ''}
-            ${disconnected ? '<span class="status-tag busted">bağlantı koptu</span>' : ''}
           </div>
-          <span class="status-tag ${p.status}">${statusLabel(p)}</span>
+          <span class="status-tag ${statusTagClass}">${statusLabel(p, disconnected)}</span>
         </div>
         <div class="row-scroll"><div class="card-row" data-row-idx="${p.idx}">${playerCardsHTML(p)}</div></div>
         <div class="player-score"><small>Bu turda</small> ${roundScore(p)} &nbsp;·&nbsp; <small>Toplam</small> ${p.total}</div>
