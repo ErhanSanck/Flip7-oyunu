@@ -152,15 +152,23 @@
         
         .status-badge { position: fixed; top: 10px; left: 10px; background: #34495e; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; z-index: 1000;}
 
-        /* --- SOHBET SİSTEMİ (CHAT) --- */
-        #chat-bubble { position: fixed; bottom: 20px; right: 20px; width: 55px; height: 55px; background: #e74c3c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 2000; transition: transform 0.2s; border: 2px solid white; display: flex;}
-        #chat-bubble:hover { transform: scale(1.1); }
-        #chat-panel { position: fixed; bottom: 85px; right: 20px; width: 320px; background: white; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: none; flex-direction: column; z-index: 2000; overflow: hidden; border: 2px solid #ccc;}
+        /* --- SOHBET VE AI SİSTEMİ YÜZEN BUTONLARI --- */
+        .floating-btn { position: fixed; bottom: 20px; width: 55px; height: 55px; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 2000; transition: transform 0.2s; border: 2px solid white;}
+        .floating-btn:hover { transform: scale(1.1); }
+        
+        #ai-bubble { right: 20px; background: #9b59b6; }
+        #chat-bubble { right: 85px; background: #e74c3c; display: flex;}
+
+        /* Panel Tasarımları */
+        .side-panel { position: fixed; bottom: 85px; right: 20px; width: 320px; background: white; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: none; flex-direction: column; z-index: 2000; overflow: hidden; border: 2px solid #ccc;}
         .chat-header { background: #2c3e50; color: white; padding: 12px; display: flex; justify-content: space-between; font-weight: bold; align-items: center;}
-        #chat-messages { height: 280px; overflow-y: auto; padding: 10px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; background: #fdf5e6;}
+        .chat-messages { height: 280px; overflow-y: auto; padding: 10px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; background: #fdf5e6;}
+        
         .chat-message { padding: 8px 12px; border-radius: 8px; background: #ecf0f1; align-self: flex-start; max-width: 85%; word-wrap: break-word; position: relative;}
         .chat-message.me { background: #d1f2eb; align-self: flex-end; }
+        .chat-message.ai-msg { background: #f5eef8; align-self: flex-start; border-left: 3px solid #9b59b6;}
         .chat-message .sender { font-weight: bold; font-size: 10px; margin-bottom: 2px; color: #7f8c8d; }
+        
         .chat-input-area { display: flex; padding: 10px; border-top: 1px solid #ddd; background: white;}
         .chat-input-area input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px 0 0 5px; font-size: 13px; margin:0;}
         .chat-input-area button { padding: 10px 15px; border-radius: 0 5px 5px 0; font-size: 13px; margin:0;}
@@ -170,7 +178,7 @@
             .table-layout {
                 grid-template-columns: 1fr;
                 grid-template-areas: "top" "left" "center" "right" "bottom";
-                gap: 10px; padding-bottom: 70px; /* Chat butonu için alttan boşluk */
+                gap: 10px; padding-bottom: 70px; /* Chat butonları için alttan boşluk */
             }
             .center-board { margin: 5px 0; padding: 10px; border-width: 5px; }
             .card { width: 50px; height: 75px; font-size: 10px; }
@@ -181,8 +189,8 @@
             .nomad { width: 20px; font-size: 9px; }
             .card-row { gap: 6px; }
             
-            #chat-panel { width: calc(100% - 40px); bottom: 85px; right: 20px; height: 400px;}
-            #chat-messages { height: 300px; }
+            .side-panel { width: calc(100% - 40px); bottom: 85px; right: 20px; height: 400px;}
+            .chat-messages { height: 300px; }
         }
     </style>
 </head>
@@ -326,16 +334,30 @@
     </div>
 
     <!-- SOHBET (CHAT) ARAYÜZÜ -->
-    <div id="chat-bubble" onclick="ChatController.toggleChat()">💬</div>
-    <div id="chat-panel">
+    <div id="chat-bubble" class="floating-btn" onclick="ChatController.toggleChat()">💬</div>
+    <div id="chat-panel" class="side-panel">
         <div class="chat-header">
             <span id="chat-title">🌍 Genel Sohbet</span>
             <span style="cursor:pointer; font-size:18px;" onclick="ChatController.toggleChat()">✖</span>
         </div>
-        <div id="chat-messages"></div>
+        <div id="chat-messages" class="chat-messages"></div>
         <div class="chat-input-area">
             <input type="text" id="chat-input" placeholder="Mesaj yaz..." onkeypress="if(event.key==='Enter') ChatController.sendMessage()">
             <button onclick="ChatController.sendMessage()">Gönder</button>
+        </div>
+    </div>
+
+    <!-- YAPAY ZEKA (AI) ARAYÜZÜ -->
+    <div id="ai-bubble" class="floating-btn" onclick="AiController.toggleAI()">🤖</div>
+    <div id="ai-panel" class="side-panel">
+        <div class="chat-header" style="background: #8e44ad;">
+            <span id="ai-title">🤖 Oyun Asistanı</span>
+            <span style="cursor:pointer; font-size:18px;" onclick="AiController.toggleAI()">✖</span>
+        </div>
+        <div id="ai-messages" class="chat-messages" style="background: #fdf5f6;"></div>
+        <div class="chat-input-area">
+            <input type="text" id="ai-input" placeholder="Oyun kurallarını sor..." onkeypress="if(event.key==='Enter') AiController.sendMessage()">
+            <button style="background: #8e44ad;" onclick="AiController.sendMessage()">Sor</button>
         </div>
     </div>
 
@@ -397,7 +419,6 @@
             selectMode(mode) {
                 isOnline = (mode === 'online');
                 if (!isOnline) {
-                    // Yerel Oyun İçin Oda Kodu UI Gizlenir
                     document.getElementById('create-room-title').innerText = "Yerel Oyun Kur";
                     document.getElementById('room-code-label').style.display = 'none';
                     document.getElementById('display-new-room-code').style.display = 'none';
@@ -408,7 +429,6 @@
             },
             prepareCreateRoom() {
                 currentRoomId = Math.random().toString(36).substring(2, 7).toUpperCase();
-                // Online Oyun İçin Oda Kodu UI Gösterilir
                 document.getElementById('create-room-title').innerText = "Oda Kuruluyor";
                 document.getElementById('room-code-label').style.display = 'block';
                 document.getElementById('display-new-room-code').style.display = 'block';
@@ -506,20 +526,96 @@
             }
         };
 
+        // --- YAPAY ZEKA (AI) ASİSTAN KONTROLCÜSÜ ---
+        const AiController = {
+            isOpen: false,
+            
+            toggleAI() {
+                this.isOpen = !this.isOpen;
+                document.getElementById('ai-panel').style.display = this.isOpen ? 'flex' : 'none';
+                if(this.isOpen) {
+                    // Eğer sohbet de açıksa onu kapat (üst üste binmemesi için)
+                    if(ChatController.isOpen) ChatController.toggleChat();
+                    
+                    document.getElementById('ai-input').focus();
+                    
+                    // İlk açılış mesajı
+                    if(document.getElementById('ai-messages').children.length === 0) {
+                        this.renderMessage("Merhaba! Karakum oyunu hakkında size nasıl yardımcı olabilirim? (Kurallar, puanlama, deve satın alma vb.)", 'ai');
+                    }
+                }
+            },
+            
+            sendMessage() {
+                const input = document.getElementById('ai-input');
+                const text = input.value.trim();
+                if (!text) return;
+                
+                // Kullanıcının sorusunu ekrana bas
+                this.renderMessage(text, 'user');
+                input.value = '';
+                
+                // Botun düşünme süresi
+                setTimeout(() => {
+                    this.generateResponse(text.toLowerCase());
+                }, 600);
+            },
+            
+            // Kural Tabanlı Yapay Zeka Simülasyonu
+            generateResponse(msg) {
+                let response = "";
+                
+                if (msg.includes('oyna') || msg.includes('amaç') || msg.includes('kural') || msg.includes('başla')) {
+                    response = "Oyunun amacı; kendi sıranızda renk kartları toplayarak ortadaki develeri satın almak ve bu develeri kervanınıza (sağ taraf) kurallara uygun ekleyerek oyun sonunda en yüksek puanı toplamaktır.";
+                } else if (msg.includes('+1') || msg.includes('maliyet') || msg.includes('en sol') || msg.includes('artar')) {
+                    response = "⚠️ +1 Kuralı: Ortadaki deve sırasının en solundaki devenin rengine sahip tüm develeri almak 1 kart daha pahalıdır. Puanın yanındaki kırmızı +1 simgesinden anlayabilirsiniz.";
+                } else if (msg.includes('deve') || msg.includes('satın') || msg.includes('al')) {
+                    response = "Sıra size geldiğinde, elinizdeki renk kartlarını veya Jokerleri kullanarak ortadaki develerden birini satın alabilirsiniz. Devenin üzerindeki puan, kaç kart ödemeniz gerektiğini gösterir. Unutmayın, renk kartı çektiğiniz turda deve alamazsınız!";
+                } else if (msg.includes('kervan') || msg.includes('sağ') || msg.includes('sol') || msg.includes('ıskarta') || msg.includes('kayma') || msg.includes('zincir')) {
+                    response = "🐪 Yerleşim Kuralı: Aldığınız deve, sağ taraftaki (Kervan) son devenin ya **rengiyle** ya da **puanıyla** aynı olmalıdır. Eşleşirse sağa, eşleşmezse sola (Iskarta) gider. Sağa her deve eklendiğinde, soldaki develer kurala uyuyorsa otomatik olarak zincirleme şekilde sağa kayar!";
+                } else if (msg.includes('puan') || msg.includes('skor') || msg.includes('bit') || msg.includes('kazan')) {
+                    response = "🏆 Puanlama: Oyun, ortadaki deve destesi bittiğinde sona erer. Sağ taraftaki (Kervan) develer üzerindeki puanı TAM verir. Sol taraftaki (Iskarta) develer ise puanlarının YARISINI verir. Toplamı en yüksek olan kazanır!";
+                } else if (msg.includes('kart') || msg.includes('çek') || msg.includes('renk') || msg.includes('sıra')) {
+                    response = "🃏 Kendi sıranızda 2 adet renk kartı çekme hakkınız vardır. Bunları isterseniz ortadaki açık kartlardan, isterseniz desteden kapalı olarak çekebilirsiniz.";
+                } else if (msg.includes('joker') || msg.includes('palyaço')) {
+                    response = "🤡 Joker kartları (palyaço yüzü) deve alırken eksik renk kartlarınızın yerine geçer. Ancak ortadan açık bir Joker çekerseniz, turunuz 2 hakkınızı da kullanmışsınız gibi hemen biter!";
+                } else if (msg.includes('nasılsın') || msg.includes('merhaba') || msg.includes('selam')) {
+                    response = "Merhaba! Ben oyun asistanınızım. Size Karakum kuralları hakkında nasıl yardımcı olabilirim?";
+                } else {
+                    response = "Üzgünüm, sadece Karakum oyunu ile ilgili soruları cevaplayabilirim. Oyun dışı konulara yanıt veremiyorum. Bana '+1 kuralı nedir?' veya 'Puanlar nasıl hesaplanır?' gibi sorular sorabilirsiniz.";
+                }
+                
+                this.renderMessage(response, 'ai');
+            },
+            
+            renderMessage(text, sender) {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `chat-message ${sender === 'user' ? 'me' : 'ai-msg'}`;
+                msgDiv.innerHTML = `<div class="sender">${sender === 'user' ? 'Sen' : '🤖 Asistan'}</div><div>${text}</div>`;
+                
+                const container = document.getElementById('ai-messages');
+                container.appendChild(msgDiv);
+                container.scrollTop = container.scrollHeight;
+            }
+        };
+
         // --- SOHBET (CHAT) KONTROLCÜSÜ ---
         const ChatController = {
             isOpen: false,
             messagesRef: null,
-            globalSessionName: "Misafir " + Math.floor(Math.random() * 9000 + 1000), // Ana menüdeki rastgele isim
+            globalSessionName: "Misafir " + Math.floor(Math.random() * 9000 + 1000), 
             
             toggleChat() {
                 this.isOpen = !this.isOpen;
                 document.getElementById('chat-panel').style.display = this.isOpen ? 'flex' : 'none';
-                if(this.isOpen) document.getElementById('chat-input').focus();
+                if(this.isOpen) {
+                    if(AiController.isOpen) AiController.toggleAI(); // AI açıksa kapat
+                    document.getElementById('chat-input').focus();
+                }
             },
             
             init(roomCode) {
-                if(this.messagesRef) this.messagesRef.off(); // Eski dinleyiciyi temizle
+                if(this.messagesRef) this.messagesRef.off(); 
                 
                 this.messagesRef = db.ref(`rooms/${roomCode}/messages`);
                 document.getElementById('chat-messages').innerHTML = ''; 
@@ -538,7 +634,6 @@
                 
                 let pName = this.globalSessionName;
                 
-                // Oyundaysak oyuncu adını al
                 if (isOnline && GameEngine.state && GameEngine.state.players[myPlayerId]) {
                     pName = GameEngine.state.players[myPlayerId].name;
                 } else if (isOnline && currentRoomId && currentRoomId !== 'global_chat') {
@@ -546,7 +641,7 @@
                 }
                 
                 this.messagesRef.push({
-                    senderId: this.globalSessionName, // Benzersiz bir cihaz/session kimliği olarak
+                    senderId: this.globalSessionName, 
                     senderName: pName,
                     text: text,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
@@ -851,7 +946,7 @@
             startGameUI() {
                 AppFlow.showScreen('game-screen');
                 document.getElementById('status-badge').style.display = 'block';
-                document.getElementById('leave-game-btn').style.display = 'block'; // Çıkış butonunu göster
+                document.getElementById('leave-game-btn').style.display = 'block';
                 this.renderAll();
             },
 
